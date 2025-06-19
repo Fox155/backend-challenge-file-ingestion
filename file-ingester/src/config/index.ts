@@ -25,4 +25,11 @@ export const config = {
   processing: {
     batchSize: parseInt(process.env.BATCH_SIZE || "1000", 10),
   },
+  logger: {
+    level: process.env.LOG_LEVEL || "info",
+  },
+  metrics: {
+    precountLines: (process.env.PRECOUNT_TOTAL_LINES || "false") === "true",
+    interval: parseInt(process.env.MONITOR_INTERVAL || "2000", 10),
+  },
 };

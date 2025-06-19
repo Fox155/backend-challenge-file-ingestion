@@ -1,10 +1,15 @@
 import express, { Express, Request, Response } from "express";
 import { config } from "../../config";
+import { ILogger } from "../../application/ports/logger";
+import { IPerformanceMonitor } from "../../application/ports/monitor";
 
 export class WebServer {
   private app: Express;
 
-  constructor() {
+  constructor(
+    private readonly logger: ILogger,
+    private readonly monitor: IPerformanceMonitor
+  ) {
     this.app = express();
     this.setupRoutes();
   }
@@ -16,19 +21,9 @@ export class WebServer {
     });
 
     this.app.get("/metrics", (_req: Request, res: Response) => {
-      const mem = process.memoryUsage();
-      const cpu = process.cpuUsage();
-
-      res.json({
-        memory: {
-          rss: `${Math.round(mem.rss / 1024 / 1024)} MB`,
-          heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`,
-          heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)} MB`,
-        },
-        cpu: {
-          user: cpu.user,
-          system: cpu.system,
-        },
+      res.status(200).json({
+        status: "ok",
+        metrics: this.monitor.stats(),
         timestamp: new Date(),
       });
     });
@@ -37,10 +32,13 @@ export class WebServer {
   public start(onStartCallback?: () => void): void {
     const port = config.server.port;
     this.app.listen(port, () => {
-      console.log(`[Server] Servidor HTTP escuchando en el puerto ${port}`);
-      console.log(
-        `[Server] Endpoint de Health disponible en http://localhost:${port}/health`
+      this.logger.info(
+        `Servidor HTTP escuchando en el puerto ${config.server.port}`,
+        {
+          component: "Server",
+        }
       );
+
       if (onStartCallback) {
         onStartCallback();
       }

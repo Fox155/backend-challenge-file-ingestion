@@ -4,4 +4,5 @@ export interface IFileProvider {
    * junto con su número de línea.
    */
   getLines(): AsyncGenerator<{ line: string; lineNumber: number }>;
+  countFileLines(filePath: string): Promise<number>;
 }
