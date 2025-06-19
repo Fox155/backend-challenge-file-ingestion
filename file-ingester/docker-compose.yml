@@ -1,0 +1,75 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: challenge-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./challenge/input:/app/challenge/input:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - challenge-net
+
+  db:
+    container_name: challenge-db
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    networks:
+      - challenge-net
+    healthcheck:
+      # /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Password123 -C -Q "SELECT 1"
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools18/bin/sqlcmd",
+          "-S",
+          "${DB_SERVER}",
+          "-U",
+          "${DB_USER}",
+          "-P",
+          "${DB_PASSWORD}",
+          "-Q",
+          "SELECT 1",
+          "-C",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: challenge-db-init
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - challenge-net
+    volumes:
+      - ./database:/database
+    command: >
+      bash -c '
+        /opt/mssql-tools18/bin/sqlcmd -S db -U ${DB_USER} -P "${DB_PASSWORD}" -C -i /database/schema.sql &&
+        echo "Script de inicialización de BD ejecutado."
+      '
+
+volumes:
+  mssql-data:
+
+networks:
+  challenge-net:
+    driver: bridge
