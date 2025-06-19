@@ -3,52 +3,80 @@ import { ProcessFileUseCase } from "./application/use-cases/process-file.use-cas
 import { SqlClientRepository } from "./infrastructure/repository/sql.client";
 import { WebServer } from "./infrastructure/server/express.server";
 import { LineByLineFileProvider } from "./infrastructure/providers/file";
+import { PinoLogger } from "./infrastructure/logger/pino.logger";
+import { CliPerformanceMonitor } from "./infrastructure/metrics/monitor";
 
-let sqlRepository: SqlClientRepository | undefined;
+(async () => {
+  let sqlRepository: SqlClientRepository | undefined;
+  const logger = new PinoLogger();
 
-try {
-  // Inicializacion de dependencias
-  const server = new WebServer();
-  sqlRepository = new SqlClientRepository();
-  const fileProvider = new LineByLineFileProvider(config.file.path);
+  try {
+    // Inicializacion de dependencias
+    const monitor = new CliPerformanceMonitor();
+    sqlRepository = new SqlClientRepository();
+    const fileProvider = new LineByLineFileProvider(config.file.path);
+    const server = new WebServer(logger, monitor);
 
-  const processFileUseCase = new ProcessFileUseCase(
-    fileProvider,
-    sqlRepository,
-    config.processing.batchSize
-  );
+    const processFileUseCase = new ProcessFileUseCase(
+      fileProvider,
+      sqlRepository,
+      config.processing.batchSize,
+      logger,
+      monitor
+    );
 
-  // Inicia el procesado del archivo
-  const startProcessing = async () => {
-    try {
-      await processFileUseCase.execute();
-    } catch (error) {
-      console.error("Ha ocurrido un error fatal durante la ejecución:", error);
-    } finally {
-      if (sqlRepository) {
-        console.log("[Main] Cerrando la conexión con la base de datos...");
-        await sqlRepository.close();
-      }
-      console.log(
-        "[Main] El proceso ha finalizado. El servidor HTTP seguirá activo."
-      );
+    let totalLines = 0;
+    if (config.metrics.precountLines) {
+      totalLines = await fileProvider.countFileLines(config.file.path);
+      logger.info(`Total de líneas a procesar: ${totalLines}`);
     }
-  };
 
-  // Inicia el server web, luego empieza a procesar
-  server.start(startProcessing);
-} catch (error) {
-  console.error("[Main] Error al inicializar la aplicación:", error);
+    // Inicia el procesado del archivo
+    const startProcessing = async () => {
+      try {
+        await processFileUseCase.execute(totalLines);
+      } catch (error) {
+        logger.error("Ha ocurrido un error fatal durante la ejecución", {
+          error,
+          component: "Main",
+        });
+      } finally {
+        if (sqlRepository) {
+          logger.info("Cerrando la conexión con la base de datos...", {
+            component: "Main",
+          });
+          await sqlRepository.close();
+        }
+        logger.info(
+          "El proceso ha finalizado. El servidor HTTP seguirá activo.",
+          {
+            component: "Main",
+          }
+        );
+      }
+    };
 
-  if (sqlRepository) {
-    sqlRepository.close().then(process.exit(1));
+    // Inicia el server web, luego empieza a procesar
+    server.start(startProcessing);
+  } catch (error) {
+    logger.error("Error al inicializar la aplicación", {
+      error,
+      component: "Main",
+    });
+
+    if (sqlRepository) {
+      await sqlRepository.close();
+      process.exit(1);
+    }
   }
-}
 
-process.on("SIGINT", async () => {
-  console.log("[Main] Recibida señal SIGINT. Cerrando conexiones...");
-  if (sqlRepository) {
-    await sqlRepository.close();
-  }
-  process.exit(0);
-});
+  process.on("SIGINT", async () => {
+    logger.info("Recibida señal SIGINT. Cerrando conexiones...", {
+      component: "Main",
+    });
+    if (sqlRepository) {
+      await sqlRepository.close();
+    }
+    process.exit(0);
+  });
+})();

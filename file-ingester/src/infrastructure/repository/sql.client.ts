@@ -1,8 +1,9 @@
 import sql, { ConnectionPool, Table } from "mssql";
 import { Client } from "../../domain/client";
 import { config } from "../../config";
+import { IClientRepository } from "../../application/ports/client.repository";
 
-export class SqlClientRepository {
+export class SqlClientRepository implements IClientRepository {
   private pool: ConnectionPool;
 
   constructor() {
@@ -62,9 +63,6 @@ export class SqlClientRepository {
     // Ejecutar la operación bulk
     const request = this.pool.request();
     await request.bulk(table);
-    console.log(
-      `[DB] Lote de ${clients.length} clientes insertado correctamente.`
-    );
   }
 
   async close(): Promise<void> {

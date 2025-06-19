@@ -1,7 +1,8 @@
 import fs from "fs";
 import readline from "readline";
+import { IFileProvider } from "../../application/ports/file.provider";
 
-export class LineByLineFileProvider {
+export class LineByLineFileProvider implements IFileProvider {
   constructor(private readonly filePath: string) {
     if (!fs.existsSync(this.filePath)) {
       throw new Error(`El archivo no existe en la ruta: ${this.filePath}`);
@@ -27,5 +28,20 @@ export class LineByLineFileProvider {
         yield { line, lineNumber };
       }
     }
+  }
+
+  async countFileLines(filePath: string): Promise<number> {
+    let lineCount = 0;
+    const stream = fs.createReadStream(filePath);
+    const rl = readline.createInterface({
+      input: stream,
+      crlfDelay: Infinity,
+    });
+
+    for await (const _ of rl) {
+      lineCount++;
+    }
+
+    return lineCount;
   }
 }

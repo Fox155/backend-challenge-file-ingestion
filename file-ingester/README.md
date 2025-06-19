@@ -16,6 +16,7 @@ La estrategia principal para manejar archivos grandes con recursos limitados se 
 
 - **Tolerancia a fallos:** Las líneas corruptas del archivo se registran y se omiten sin detener el proceso.
 - **Endpoint Health:** El endpoint `/health` permanece operativo y responde incluso durante el procesamiento del archivo.
+- **Endpoint Metrics:** El endpoint `/metrics` permite obtener metricas basicas sobre la performance de la aplicación.
 - **Arquitectura:** Separación clara entre dominio, aplicación e infraestructura.
 - **Inserción por lotes:** Uso de `BULK INSERT` para un rendimiento óptimo.
 - **Entorno Dockerizado:** Totalmente orquestado con Docker y Docker Compose para un despliegue y desarrollo sencillos.
@@ -27,7 +28,7 @@ src/
 ├── domain/         # Entidades y reglas de negocio puras.
 ├── config/         # Configuraciones de la aplicación.
 ├── application/    # Casos de uso y puertos (interfaces).
-├── infrastructure/ # Implementaciones: SQL, Express, Lectura de archivos.
+├── infrastructure/ # Implementaciones: SQL, Express, Lectura de archivos, Logger, Monitor.
 ├── application/    # Casos de uso y puertos (interfaces).
 └── main.ts         # Punto de entrada de la aplicación.
 ```
@@ -63,6 +64,13 @@ src/
 
     # Tamaño del lote
     BATCH_SIZE=1000
+
+    # Logger
+    LOG_LEVEL=info
+
+    # Metrics
+    PRECOUNT_TOTAL_LINES=true
+    MONITOR_INTERVAL=2000
     ```
 
     Local
@@ -83,6 +91,13 @@ src/
 
     # Tamaño del lote
     BATCH_SIZE=1000
+
+    # Logger
+    LOG_LEVEL=info
+
+    # Metrics
+    PRECOUNT_TOTAL_LINES=true
+    MONITOR_INTERVAL=2000
     ```
 
 2.  **Instala las dependencias:**
@@ -129,6 +144,7 @@ Este método levanta un entorno completo con la aplicación y la base de datos.
 
     - **Logs de la aplicación:** `docker logs -f challenge-app`
     - **Health Check:** Abre en tu navegador `http://localhost:3000/health`. Deberías ver una respuesta JSON con el estado "ok".
+    - **Metricas:** Abre en tu navegador `http://localhost:3000/metrics`. Para visualizar las metricas basicas sobre la performance de la aplicación.
 
 3.  **Detener el entorno:**
     Para detener y eliminar los contenedores y la red, presiona `Ctrl + C` y luego ejecuta:
@@ -157,3 +173,4 @@ Este método levanta un entorno completo con la aplicación y la base de datos.
 4.  **Verifica el estado:**
     - **Logs:** Verás la salida directamente en tu terminal.
     - **Health Check:** Abre `http://localhost:3001/health` (o el puerto que hayas configurado en `.env`).
+    - **Metrics:** Abre `http://localhost:3001/metrics`.
